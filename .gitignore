@@ -11,3 +11,5 @@ wheels/
 
 models/*
 assets/*
+# Generated index (rebuild with the pipeline)
+data/
