@@ -5,8 +5,10 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "faiss-cpu>=1.15.1",
     "huggingface>=0.0.1",
     "ms-swift>=4.6.0",
+    "pymupdf>=1.28.2",
     "qwen-vl-utils>=0.0.14",
     "torch>=2.6",
     "torchvision",

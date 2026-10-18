@@ -21,7 +21,6 @@ class CarImageEmbedder:
 
 
 
-    @torch.inference_mode()
     def embed(self, image_path: str | Path) -> list[float]:
         """Generate embedding vector for a single image."""
         path = Path(image_path)
@@ -39,7 +38,19 @@ class CarImageEmbedder:
             ],
             images = [str(path.resolve())]
         )
+        return self._embed_request(request)
 
+    def embed_text(self, text: str) -> list[float]:
+        """Generate an embedding for a text query, in the same space as images."""
+        if not text.strip():
+            raise ValueError("Text query is empty.")
+        request = InferRequest(
+            messages = [{"role": "user", "content": text}]
+        )
+        return self._embed_request(request)
+
+    @torch.inference_mode()
+    def _embed_request(self, request: InferRequest) -> list[float]:
         responses = self.engine.infer([request])
         if not responses:
             raise RuntimeError("Embeding did not return results")
