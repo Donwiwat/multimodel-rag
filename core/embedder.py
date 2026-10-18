@@ -1,4 +1,3 @@
-from aliyunsdkcore.vendored.requests.packages.urllib3 import response
 from pathlib import Path
 
 import torch
@@ -15,7 +14,7 @@ class CarImageEmbedder:
         self.device_map = device_map
         self.engine = TransformersEngine(
             model=model_name,
-            task_type="embeddings",
+            task_type="embedding",
             device_map=device_map,
             max_batch_size=1
         )
@@ -33,7 +32,7 @@ class CarImageEmbedder:
                 {
                     "role": "user",
                     "content": (
-                        "<image>Represent this car image for"
+                        "<image>Represent this car image for "
                         "visual similarity retrieval."
                     ),
                 }
@@ -52,7 +51,7 @@ class CarImageEmbedder:
                 "The embedding response contains no vector."
             )
 
-        embedding = response_data[0]["embedding"]
+        embedding = response_data[0].embedding
 
         if embedding is None or len(embedding) == 0:
             raise RuntimeError(
