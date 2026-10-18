@@ -23,12 +23,12 @@ class SwiftVLMEngine:
              }   
          ], 
         )
-        response = self.engine.inference([request])
+        response = self.engine.infer([request])
         return response[0].choices[0].message.content
 
 if __name__ == "__main__":
     engine = SwiftVLMEngine(
-        "./models/Qwen/Qwen2-VL-2B-Instruct",
+        "./models/Qwen2-VL-2B-Instruct",
         device_map="auto",
     )
 
