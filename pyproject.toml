@@ -1,0 +1,10 @@
+[project]
+name = "car-visual-rag"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "huggingface>=0.0.1",
+    "ms-swift>=4.6.0",
+]
