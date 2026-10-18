@@ -18,10 +18,10 @@ class SwiftVLMEngine:
          messages=[
             {"role": "user",
              "content": [
-                {"image": img} for img in image_paths
-             ]+[{"text": prompt}]
-             }   
-         ], 
+                {"type": "image", "image": img} for img in image_paths
+             ]+[{"type": "text", "text": prompt}]
+             }
+         ],
         )
         response = self.engine.infer([request])
         return response[0].choices[0].message.content
