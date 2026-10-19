@@ -69,8 +69,8 @@ class CarVisualRAGPipeline:
 
         return "\n\n".join(sections)
 
-    # Cosine-score cutoffs, measured on the GR Yaris data. Image queries:
-    # GR Yaris ~0.85+, other cars ~0.71. Text queries: GR Yaris ~0.62+,
+    # Cosine-score cutoffs, measured on a single-model library. Image queries:
+    # indexed car ~0.85+, other cars ~0.71. Text queries: indexed car ~0.62+,
     # other cars ~0.56 or lower.
     IMAGE_MIN_SCORE = 0.78
     TEXT_MIN_SCORE = 0.59

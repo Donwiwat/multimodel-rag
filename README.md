@@ -80,8 +80,8 @@ assets/
 
 ```json
 {
-  "make": "Toyota",
-  "model": "GR Yaris",
+  "make": "Make",
+  "model": "Model",
   "summary": "One-paragraph description.",
   "visual_cues": ["Identifying features the VLM can check in a photo"],
   "specs": {"Engine": "...", "Max power": "..."},
@@ -109,7 +109,7 @@ uv run python -m core.pipeline --image path/to/car.jpg
 uv run python -m core.pipeline "What engine does this car have?" --image path/to/car.jpg
 
 # Ask without a photo (retrieval uses the question text)
-uv run python -m core.pipeline "What is the fuel tank size of the GR Yaris?"
+uv run python -m core.pipeline "What is the fuel tank size of the <make> <model>?"
 
 # Re-index assets/ first
 uv run python -m core.pipeline --rebuild --image path/to/car.jpg
@@ -128,9 +128,9 @@ The output lists the retrieved records with their scores, then the answer.
 
 Retrieved records below a cosine-score cutoff are dropped
 ([core/pipeline.py](core/pipeline.py)): **0.78** for image queries and
-**0.59** for text queries. They were measured on the GR Yaris data (image
-queries: GR Yaris ~0.85+, other cars ~0.71; text: GR Yaris ~0.62+, other cars
-~0.56 or lower), so re-check them as the library grows.
+**0.59** for text queries. They were measured on a single-model library (image
+queries: indexed car ~0.85+, other cars ~0.71; text: indexed car ~0.62+, other
+cars ~0.56 or lower), so re-check them for your own library.
 
 ## Loan calculator
 
@@ -142,7 +142,7 @@ and prints a quote.
 uv run python -m core.pipeline --image path/to/car.jpg --loan --down 25% --rate 2.49 --months 72
 
 # Same, with an explicit price
-uv run python -m core.pipeline "Toyota GR Yaris" --loan --price 3690000 --down 25% --rate 2.49 --months 72
+uv run python -m core.pipeline "<make> <model>" --loan --price 1000000 --down 25% --rate 2.49 --months 72
 
 # Calculator only – no models loaded
 uv run python -m core.loan --price 1000000 --down 20% --rate 3 --months 48
