@@ -2,6 +2,8 @@ import textwrap
 from pathlib import Path
 from typing import Any
 
+from core.loan import calculate_loan, parse_down_payment
+
 class CarVisualRAGPipeline:
     """Orchestrate the end-to-end car image RAG flow."""
     def __init__(self,
@@ -73,22 +75,16 @@ class CarVisualRAGPipeline:
     IMAGE_MIN_SCORE = 0.78
     TEXT_MIN_SCORE = 0.59
 
-    def query(
+    def _retrieve(
         self,
-        image_path: str | Path | None = None,
-        question: str = "Describe this car.",
-        top_k: int = 5,
-        min_score: float | None = None,
-    ) -> dict[str, Any]:
-        """
-        Answer a question about a car, from an image, a text question, or both.
-
-        With an image, retrieval uses the image; without one, it uses the question.
-        """
-        path = Path(image_path) if image_path else None
-
+        path: Path | None,
+        question: str,
+        top_k: int,
+        min_score: float | None,
+    ) -> list[dict[str, Any]]:
+        """Retrieve records by image, or by the question when there is no image."""
         if path is not None and not path.is_file():
-            raise FileNotFoundError(f"Image file not found at {image_path}")
+            raise FileNotFoundError(f"Image file not found at {path}")
 
         if top_k < 1:
             raise ValueError("top_k must be at least 1")
@@ -106,10 +102,70 @@ class CarVisualRAGPipeline:
 
         # Drop weak matches so an unknown car is not described with another
         # model's specs.
-        retrieved_items = [
+        return [
             item for item in retrieved_items
             if item.get("score", 1.0) >= min_score
         ]
+
+    def loan_quote(
+        self,
+        image_path: str | Path | None = None,
+        question: str = "",
+        price: float | None = None,
+        down_payment: str | float = 0,
+        annual_rate: float = 0.0,
+        months: int = 60,
+        method: str = "flat",
+    ) -> dict[str, Any]:
+        """
+        Identify the car, then quote a loan on its price.
+
+        The price comes from the model's info.json ("price" and "currency")
+        unless one is passed in. The numbers are computed, not generated.
+        """
+        path = Path(image_path) if image_path else None
+        retrieved_items = self._retrieve(path, question, top_k=5, min_score=None)
+        model_key = next((r["model_key"] for r in retrieved_items if "model_key" in r), None)
+        info = self.retriever.model_info(model_key) if model_key else {}
+        name = f"{info.get('make', '')} {info.get('model', model_key or '')}".strip()
+
+        if price is None:
+            price = info.get("price")
+        if price is None:
+            if model_key is None:
+                raise ValueError("The car was not recognised; pass a price to quote a loan.")
+            raise ValueError(f"No price for {name} in info.json; pass a price to quote a loan.")
+
+        quote = calculate_loan(
+            price=float(price),
+            down_payment=parse_down_payment(down_payment, float(price)),
+            annual_rate=annual_rate,
+            months=months,
+            method=method,
+        )
+
+        return {
+            "model_key": model_key,
+            "model_name": name or None,
+            "currency": info.get("currency", ""),
+            "quote": quote,
+            "retrieved_results": retrieved_items,
+        }
+
+    def query(
+        self,
+        image_path: str | Path | None = None,
+        question: str = "Describe this car.",
+        top_k: int = 5,
+        min_score: float | None = None,
+    ) -> dict[str, Any]:
+        """
+        Answer a question about a car, from an image, a text question, or both.
+
+        With an image, retrieval uses the image; without one, it uses the question.
+        """
+        path = Path(image_path) if image_path else None
+        retrieved_items = self._retrieve(path, question, top_k, min_score)
 
         context = self._format_context(retrieved_items)
         model_info = self._format_model_info(retrieved_items)
@@ -172,6 +228,7 @@ if __name__ == "__main__":
     from core.embedder import CarImageEmbedder
     from core.indexer import INDEX_FILE, CarImageIndexer
     from core.inference import SwiftVLMEngine
+    from core.loan import add_loan_arguments, format_quote
     from core.retriever import CarImageRetriever
 
     parser = argparse.ArgumentParser(description="Ask a question about a car, with or without an image.")
@@ -179,7 +236,12 @@ if __name__ == "__main__":
     parser.add_argument("--image", help="Path to a car image to ask about")
     parser.add_argument("--top-k", type=int, default=5)
     parser.add_argument("--rebuild", action="store_true", help="Re-index assets/ before querying")
+    parser.add_argument("--loan", action="store_true", help="Identify the car and quote a loan instead of answering")
+    add_loan_arguments(parser)
     args = parser.parse_args()
+
+    if args.image is None and args.question == parser.get_default("question") and not (args.loan and args.price):
+        parser.error("give a question, an --image, or both")
 
     index_dir = Path("data/index")
     embedder = CarImageEmbedder("./models/Qwen3-VL-Embedding-2B")
@@ -193,11 +255,21 @@ if __name__ == "__main__":
     pipeline = CarVisualRAGPipeline(
         embedder=embedder,
         retriever=CarImageRetriever(index_dir),
-        inference=SwiftVLMEngine("./models/Qwen2-VL-2B-Instruct"),
+        # A loan quote is pure arithmetic, so skip loading the VLM.
+        inference=None if args.loan else SwiftVLMEngine("./models/Qwen2-VL-2B-Instruct"),
     )
 
-    if args.image is None and args.question == parser.get_default("question"):
-        parser.error("give a question, an --image, or both")
+    if args.loan:
+        try:
+            loan = pipeline.loan_quote(
+                args.image, args.question, price=args.price, down_payment=args.down,
+                annual_rate=args.rate, months=args.months, method=args.method,
+            )
+        except ValueError as error:
+            parser.error(str(error))
+        print(f"Car: {loan['model_name'] or 'not recognised'}")
+        print(format_quote(loan["quote"], loan["currency"]))
+        raise SystemExit
 
     result = pipeline.query(args.image, args.question, top_k=args.top_k)
     print("Retrieved:")
